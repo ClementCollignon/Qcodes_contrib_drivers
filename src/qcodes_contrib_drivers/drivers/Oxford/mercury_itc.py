@@ -6,8 +6,12 @@
 from qcodes.instrument import VisaInstrument
 from qcodes import validators as vals
 import logging
+import datetime
 
 LOG = logging.getLogger(__name__)
+
+# Path to a history log file to keep track of the system.
+# Set to None if you don't need.
 LOGFILE = None
 
 class Teslatron_MercuryiTC(VisaInstrument):
@@ -29,16 +33,14 @@ class Teslatron_MercuryiTC(VisaInstrument):
 
     def __init__(self, name: str, address: str, terminator: str = "\n", **kwargs):
         LOG.debug('Initializing instrument')
-        super().__init__(name, address, **kwargs)
-        self.set_terminator(terminator)
+        super().__init__(name,
+                         address,
+                         terminator=terminator,
+                         **kwargs)
 
         if LOGFILE:
-            log_file = logging.FileHandler(LOGFILE)
-            log_file.setLevel(logging.INFO)
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            log_file.setFormatter(formatter)
-            LOG.addHandler(LOGFILE)
-
+            self.history_log = HistoryLogger(LOGFILE)
+            
         self.board_mapping = {"VTI" : "MB1.T1",
                                "VTI_heater" : "MB0",
                                "probe" : "DB8.T1",
@@ -165,8 +167,8 @@ class Teslatron_MercuryiTC(VisaInstrument):
         splitted_repsonse = response.split(":")
         temperature = splitted_repsonse[6]
         LOG.debug(f'Deduced temperature: {temperature}')
-        info_message = f"Temperature of {self.reverse_board_mapping[uid]}: {temperature}"
-        LOG.info(info_message)
+        info_message = f"Temperature of {self.reverse_board_mapping[uid]} is: {temperature}"
+        self.history_log.log(info_message)
         return float(temperature[:-1])
 
 
@@ -184,7 +186,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         set_temperature = splitted_repsonse[6]
         LOG.debug(f'Deduced setpoint temperature: {set_temperature}')
         info_message = f"Setpoint of {self.reverse_board_mapping[uid]} is: {set_temperature}"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
         return float(set_temperature[:-1])
     
 
@@ -201,8 +203,8 @@ class Teslatron_MercuryiTC(VisaInstrument):
         splitted_repsonse = response.split(":")
         ramp_rate = splitted_repsonse[6]
         LOG.debug(f'Deduced ramp rate: {ramp_rate}')
-        info_message = f"Ramp rate of {self.reverse_board_mapping[uid]} set to: {ramp_rate}"
-        LOG.info(info_message)
+        info_message = f"Ramp rate of {self.reverse_board_mapping[uid]} is: {ramp_rate}"
+        self.history_log.log(info_message)
         return float(ramp_rate[:-3])
     
 
@@ -219,7 +221,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         splitted_repsonse = response.split(":")
         ramp_status = splitted_repsonse[6]
         info_message = f"Ramp status of {self.reverse_board_mapping[uid]} is: {ramp_status}"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
         ramp_status = self.status_mapping[ramp_status]
         LOG.debug(f'Deduced ramp status: {ramp_status}')
         return ramp_status
@@ -238,7 +240,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         splitted_repsonse = response.split(":")
         pid_status = splitted_repsonse[6]
         info_message = f"PID status of {self.reverse_board_mapping[uid]} is: {pid_status}"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
         pid_status = self.status_mapping[pid_status]
         LOG.debug(f'Deduced PID status: {pid_status}')
         return pid_status
@@ -257,7 +259,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         splitted_repsonse = response.split(":")
         heater_output = splitted_repsonse[6]
         info_message = f"Heater output of {self.reverse_board_mapping[uid]} is: {heater_output} %"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
         LOG.debug(f'Deduced heater output: {heater_output} %')
         return float(heater_output)
     
@@ -275,7 +277,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         splitted_repsonse = response.split(":")
         control_status = splitted_repsonse[6]
         info_message = f"Pressure control status of {self.reverse_board_mapping[uid]} is: {control_status}"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
         control_status = self.status_mapping[control_status]
         LOG.debug(f'Deduced pressure control status: {control_status}')
         return control_status
@@ -294,7 +296,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         splitted_repsonse = response.split(":")
         flow_percentage = splitted_repsonse[6]
         info_message = f"Flow percentage associated with {self.reverse_board_mapping[uid]} is: {flow_percentage} %"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
         LOG.debug(f'Deduced flow percentage: {flow_percentage} %')
         return float(flow_percentage)
     
@@ -312,7 +314,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         splitted_repsonse = response.split(":")
         pressure = splitted_repsonse[6]
         info_message = f"VTI pressure is: {pressure}"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
         return float(pressure[:-2])
     
 
@@ -328,8 +330,8 @@ class Teslatron_MercuryiTC(VisaInstrument):
         LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         pressure = splitted_repsonse[6]
-        info_message = f"VTI pressure setpoint is: {pressure} mb"
-        LOG.info(info_message)
+        info_message = f"VTI pressure setpoint is: {pressure}"
+        self.history_log.log(info_message)
         return float(pressure[:-2])
 
 
@@ -343,7 +345,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Temperature of {self.reverse_board_mapping[uid]} set to: {temperature_setpoint} K"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
         
 
     def _set_temperature_ramp_rate(self, uid: str, ramp_rate: float) -> None:
@@ -355,7 +357,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Ramp rate of {self.reverse_board_mapping[uid]} set to: {ramp_rate} K/min"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
 
 
     def _set_ramp_mode(self, uid: str, ramp_mode: bool) -> None:
@@ -368,7 +370,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Ramp status of {self.reverse_board_mapping[uid]} set to: {ramp_mode}"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
 
     
     def _set_pid_mode(self, uid: str, pid_mode: bool) -> None:
@@ -381,7 +383,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"PID status of {self.reverse_board_mapping[uid]} set to: {pid_mode}"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
 
     
     def _set_heater_output(self, uid: str, heater_output: float) -> None:
@@ -393,7 +395,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Heater output of {self.reverse_board_mapping[uid]} set to: {heater_output:0.2f} %"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
     
 
     def _set_pressure_mode(self, uid: str, control_mode: bool) -> None:
@@ -406,7 +408,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Pressure control status of {self.reverse_board_mapping[uid]} set to: {control_mode}"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
     
 
     def _set_flow(self, uid: str, flow: float) -> None:
@@ -418,7 +420,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Flow associated with {self.reverse_board_mapping[uid]} set to: {flow:0.2f} %"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
     
 
     def _set_pressure(self, uid: str, pressure: float) -> None:
@@ -430,7 +432,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"VTI pressure setpoint set to: {pressure}"
-        LOG.info(info_message)
+        self.history_log.log(info_message)
     
 
     def _reverse_mapping(self, map: dict) -> dict:
@@ -439,3 +441,15 @@ class Teslatron_MercuryiTC(VisaInstrument):
         """
         reversed_mapping = {value: key for key, value in map.items()}
         return reversed_mapping
+
+
+class HistoryLogger:
+    def __init__(self, history_file: str) -> None:
+        self.history_file = history_file
+
+    def log(self, message: str) -> None:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_line = f"{timestamp} - Mercury_iTC - {message}\n"
+        
+        with open(self.history_file, "a") as file:
+            file.write(log_line)
