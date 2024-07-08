@@ -1,12 +1,14 @@
 # OxfordInstruments MercuryiTC class for Teslatron VTI
-# Change the board maping to your specific system. 
+# Change the board maping to your specific system.
+# Setup LOGFILE to some path if you want to keep track of your system over the years. 
 # Clement Collignon <clement.collignon.0@gmail.com>, 2024
 
 from qcodes.instrument import VisaInstrument
 from qcodes import validators as vals
 import logging
 
-log = logging.getLogger(__name__)
+LOG = logging.getLogger(__name__)
+LOGFILE = None
 
 class Teslatron_MercuryiTC(VisaInstrument):
     """
@@ -26,9 +28,16 @@ class Teslatron_MercuryiTC(VisaInstrument):
     """
 
     def __init__(self, name: str, address: str, terminator: str = "\n", **kwargs):
-        log.debug('Initializing instrument')
+        LOG.debug('Initializing instrument')
         super().__init__(name, address, **kwargs)
         self.set_terminator(terminator)
+
+        if LOGFILE:
+            log_file = logging.FileHandler(LOGFILE)
+            log_file.setLevel(logging.INFO)
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            log_file.setFormatter(formatter)
+            LOG.addHandler(LOGFILE)
 
         self.board_mapping = {"VTI" : "MB1.T1",
                                "VTI_heater" : "MB0",
@@ -150,14 +159,14 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - temperature (float): the temperature reading in K. 
         """
         command = f"READ:DEV:{uid}:TEMP:SIG:TEMP"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         temperature = splitted_repsonse[6]
-        log.debug(f'Deduced temperature: {temperature}')
+        LOG.debug(f'Deduced temperature: {temperature}')
         info_message = f"Temperature of {self.reverse_board_mapping[uid]}: {temperature}"
-        log.info(info_message)
+        LOG.info(info_message)
         return float(temperature[:-1])
 
 
@@ -168,14 +177,14 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - set_temperature (float): the temperature setpoint in K. 
         """
         command = f"READ:DEV:{uid}:TEMP:LOOP:TSET"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         set_temperature = splitted_repsonse[6]
-        log.debug(f'Deduced setpoint temperature: {set_temperature}')
+        LOG.debug(f'Deduced setpoint temperature: {set_temperature}')
         info_message = f"Setpoint of {self.reverse_board_mapping[uid]} is: {set_temperature}"
-        log.info(info_message)
+        LOG.info(info_message)
         return float(set_temperature[:-1])
     
 
@@ -186,14 +195,14 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - ramp_rate (float): in K/min 
         """
         command = f"READ:DEV:{uid}:TEMP:LOOP:RSET"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         ramp_rate = splitted_repsonse[6]
-        log.debug(f'Deduced ramp rate: {ramp_rate}')
+        LOG.debug(f'Deduced ramp rate: {ramp_rate}')
         info_message = f"Ramp rate of {self.reverse_board_mapping[uid]} set to: {ramp_rate}"
-        log.info(info_message)
+        LOG.info(info_message)
         return float(ramp_rate[:-3])
     
 
@@ -204,15 +213,15 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - ramp_status (bool): True for "ON" or False for "OFF"
         """
         command = f"READ:DEV:{uid}:TEMP:LOOP:RENA"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         ramp_status = splitted_repsonse[6]
         info_message = f"Ramp status of {self.reverse_board_mapping[uid]} is: {ramp_status}"
-        log.info(info_message)
+        LOG.info(info_message)
         ramp_status = self.status_mapping[ramp_status]
-        log.debug(f'Deduced ramp status: {ramp_status}')
+        LOG.debug(f'Deduced ramp status: {ramp_status}')
         return ramp_status
     
 
@@ -223,15 +232,15 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - pid_status (bool): True for Enabled or False for Manual mode
         """
         command = f"READ:DEV:{uid}:TEMP:LOOP:ENAB"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         pid_status = splitted_repsonse[6]
         info_message = f"PID status of {self.reverse_board_mapping[uid]} is: {pid_status}"
-        log.info(info_message)
+        LOG.info(info_message)
         pid_status = self.status_mapping[pid_status]
-        log.debug(f'Deduced PID status: {pid_status}')
+        LOG.debug(f'Deduced PID status: {pid_status}')
         return pid_status
     
 
@@ -242,14 +251,14 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - heater_output (float): heater output in percent
         """
         command = f"READ:DEV:{uid}:TEMP:LOOP:HSET"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         heater_output = splitted_repsonse[6]
         info_message = f"Heater output of {self.reverse_board_mapping[uid]} is: {heater_output} %"
-        log.info(info_message)
-        log.debug(f'Deduced heater output: {heater_output} %')
+        LOG.info(info_message)
+        LOG.debug(f'Deduced heater output: {heater_output} %')
         return float(heater_output)
     
 
@@ -260,15 +269,15 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - control_status (bool): True for Enabled or False for Manual mode
         """
         command = f"READ:DEV:{uid}:PRES:LOOP:ENAB"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         control_status = splitted_repsonse[6]
         info_message = f"Pressure control status of {self.reverse_board_mapping[uid]} is: {control_status}"
-        log.info(info_message)
+        LOG.info(info_message)
         control_status = self.status_mapping[control_status]
-        log.debug(f'Deduced pressure control status: {control_status}')
+        LOG.debug(f'Deduced pressure control status: {control_status}')
         return control_status
     
 
@@ -279,14 +288,14 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - flow_percentage (float): the flow in percent.
         """
         command = f"READ:DEV:{uid}:PRES:LOOP:FSET"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         flow_percentage = splitted_repsonse[6]
         info_message = f"Flow percentage associated with {self.reverse_board_mapping[uid]} is: {flow_percentage} %"
-        log.info(info_message)
-        log.debug(f'Deduced flow percentage: {flow_percentage} %')
+        LOG.info(info_message)
+        LOG.debug(f'Deduced flow percentage: {flow_percentage} %')
         return float(flow_percentage)
     
 
@@ -297,13 +306,13 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - pressure (float): the pressure in mb.
         """
         command = f"READ:DEV:{uid}:PRES:SIG:PRES"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         pressure = splitted_repsonse[6]
         info_message = f"VTI pressure is: {pressure}"
-        log.info(info_message)
+        LOG.info(info_message)
         return float(pressure[:-2])
     
 
@@ -314,13 +323,13 @@ class Teslatron_MercuryiTC(VisaInstrument):
             - pressure (float): the pressure setpoint in mb.
         """
         command = f"READ:DEV:{uid}:PRES:LOOP:PRST"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         splitted_repsonse = response.split(":")
         pressure = splitted_repsonse[6]
         info_message = f"VTI pressure setpoint is: {pressure} mb"
-        log.info(info_message)
+        LOG.info(info_message)
         return float(pressure[:-2])
 
 
@@ -330,11 +339,11 @@ class Teslatron_MercuryiTC(VisaInstrument):
         Set the temperature setpoint of the loop associated to `uid` to `temperature_setpoint`.
         """
         command = f"SET:DEV:{uid}:TEMP:LOOP:TSET:{temperature_setpoint:0.3f}"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Temperature of {self.reverse_board_mapping[uid]} set to: {temperature_setpoint} K"
-        log.info(info_message)
+        LOG.info(info_message)
         
 
     def _set_temperature_ramp_rate(self, uid: str, ramp_rate: float) -> None:
@@ -342,11 +351,11 @@ class Teslatron_MercuryiTC(VisaInstrument):
         Set the tempramp rate of the loop associated to `uid` to `ramp_rate`.
         """
         command = f"SET:DEV:{uid}:TEMP:LOOP:RSET:{ramp_rate:0.3f}"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Ramp rate of {self.reverse_board_mapping[uid]} set to: {ramp_rate} K/min"
-        log.info(info_message)
+        LOG.info(info_message)
 
 
     def _set_ramp_mode(self, uid: str, ramp_mode: bool) -> None:
@@ -355,11 +364,11 @@ class Teslatron_MercuryiTC(VisaInstrument):
         """
         ramp_mode = self.reverse_status_mapping[ramp_mode]
         command = f"SET:DEV:{uid}:TEMP:LOOP:RENA:{ramp_mode}"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Ramp status of {self.reverse_board_mapping[uid]} set to: {ramp_mode}"
-        log.info(info_message)
+        LOG.info(info_message)
 
     
     def _set_pid_mode(self, uid: str, pid_mode: bool) -> None:
@@ -368,11 +377,11 @@ class Teslatron_MercuryiTC(VisaInstrument):
         """
         pid_mode = self.reverse_status_mapping[pid_mode]
         command = f"SET:DEV:{uid}:TEMP:LOOP:ENAB:{pid_mode}"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"PID status of {self.reverse_board_mapping[uid]} set to: {pid_mode}"
-        log.info(info_message)
+        LOG.info(info_message)
 
     
     def _set_heater_output(self, uid: str, heater_output: float) -> None:
@@ -380,11 +389,11 @@ class Teslatron_MercuryiTC(VisaInstrument):
         Set the heater output of the loop associated to `uid` to `heater_output`.
         """
         command = f"SET:DEV:{uid}:TEMP:LOOP:HSET:{heater_output:0.2f}"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Heater output of {self.reverse_board_mapping[uid]} set to: {heater_output:0.2f} %"
-        log.info(info_message)
+        LOG.info(info_message)
     
 
     def _set_pressure_mode(self, uid: str, control_mode: bool) -> None:
@@ -393,11 +402,11 @@ class Teslatron_MercuryiTC(VisaInstrument):
         """
         control_mode = self.reverse_status_mapping[control_mode]
         command = f"SET:DEV:{uid}:PRES:LOOP:ENAB:{control_mode}"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Pressure control status of {self.reverse_board_mapping[uid]} set to: {control_mode}"
-        log.info(info_message)
+        LOG.info(info_message)
     
 
     def _set_flow(self, uid: str, flow: float) -> None:
@@ -405,11 +414,11 @@ class Teslatron_MercuryiTC(VisaInstrument):
         Set the flow of the loop associated to `uid` to `flow`.
         """
         command = f"SET:DEV:{uid}:PRES:LOOP:FSET:{flow:0.2f}"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"Flow associated with {self.reverse_board_mapping[uid]} set to: {flow:0.2f} %"
-        log.info(info_message)
+        LOG.info(info_message)
     
 
     def _set_pressure(self, uid: str, pressure: float) -> None:
@@ -417,11 +426,11 @@ class Teslatron_MercuryiTC(VisaInstrument):
         Set the pressure setpoint output of the loop associated to `uid` to `pressure`.
         """
         command = f"SET:DEV:{uid}:PRES:LOOP:PRST:{pressure:0.2f}"
-        log.debug(f'Sending {command} at address {self._address}')
+        LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
-        log.debug(f'Received {response} from address {self._address}')
+        LOG.debug(f'Received {response} from address {self._address}')
         info_message = f"VTI pressure setpoint set to: {pressure}"
-        log.info(info_message)
+        LOG.info(info_message)
     
 
     def _reverse_mapping(self, map: dict) -> dict:
