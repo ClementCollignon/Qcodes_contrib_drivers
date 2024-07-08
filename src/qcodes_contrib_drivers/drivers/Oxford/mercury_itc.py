@@ -1,5 +1,5 @@
-# OxfordInstruments_Kelvinox_IGH class, to perform the communication between the Wrapper and the device
-
+# OxfordInstruments MercuryiTC class for Teslatron VTI
+# Change the board maping to your specific system. 
 # Clement Collignon <clement.collignon.0@gmail.com>, 2024
 
 from qcodes.instrument import VisaInstrument
@@ -8,26 +8,27 @@ import logging
 
 log = logging.getLogger(__name__)
 
-"""
-TO DO:
-    • Add descriptions to class and methods
-"""
-
-class MercuryiTC(VisaInstrument):
+class Teslatron_MercuryiTC(VisaInstrument):
     """
-    Driver for Oxford Instrument Mercury ientelligent Temperature Controller
+    Oxford Instrument Mercury iTC Driver for Teslatron VTI
 
-    name
-    address
-    board_mapping
-    status_mapping
+    Args:
+        - name: name of the VTI temperature controller.
+        - address: IP-address of the Mercury controller.
+        - terminator: Defaults to '\n'
+        - **kwargs: Forwarded to base class.
+
+    Attributes:
+        - board_mapping: maps the motherboard/daughterboard address of
+        each sensor or heater or valve.
+
+    Status: beta-version.
     """
-    def __init__(self, name: str, address: str, **kwargs):
+
+    def __init__(self, name: str, address: str, terminator: str = "\n", **kwargs):
         log.debug('Initializing instrument')
         super().__init__(name, address, **kwargs)
-        self.set_address(address)
-        self.set_terminator("\n")
-        self.device_clear()
+        self.set_terminator(terminator)
 
         self.board_mapping = {"VTI" : "MB1.T1",
                                "VTI_heater" : "MB0",
@@ -45,7 +46,7 @@ class MercuryiTC(VisaInstrument):
         probe_uid = self.board_mapping["probe"]
         pressure_uid = self.board_mapping["pressure"]
 
-        ### VTI parameters ###
+        ### VTI temperature parameters ###
         self.add_parameter(name = "VTI_temp",
                            unit = 'K',
                            label = "T_VTI",
@@ -81,7 +82,7 @@ class MercuryiTC(VisaInstrument):
                            set_cmd = lambda heater_output: self._set_heater_output(vti_uid, heater_output),
                            vals = vals.Numbers(min_value = 0, max_value = 100))
         
-        ### Probe parameters ###
+        ### Probe temperature parameters ###
         self.add_parameter(name = "probe_temp",
                            unit = 'K',
                            label = "T_probe",
@@ -117,7 +118,7 @@ class MercuryiTC(VisaInstrument):
                            set_cmd = lambda heater_output: self._set_heater_output(probe_uid, heater_output),
                            vals = vals.Numbers(min_value = 0, max_value = 100))
         
-        ### Flow parameters ###
+        ### Flow/Pressure parameters ###
         self.add_parameter(name = "pressure_control_mode",
                            unit = '',
                            get_cmd = lambda: self._get_pressure_mode(pressure_uid),
@@ -141,8 +142,13 @@ class MercuryiTC(VisaInstrument):
                            vals = vals.Numbers(min_value=1, max_value=50))
         
 
-    #Private methods Getters
+    #Private methods: Getters
     def _get_temperature(self, uid: str):
+        """
+        Read temperature of device located at `uid`.
+        Returns:
+            - temperature (float): the temperature reading in K. 
+        """
         command = f"READ:DEV:{uid}:TEMP:SIG:TEMP"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -156,6 +162,11 @@ class MercuryiTC(VisaInstrument):
 
 
     def _get_temperature_setpoint(self, uid: str) -> float:
+        """
+        Read temperature setpoint of device located at `uid`.
+        Returns:
+            - set_temperature (float): the temperature setpoint in K. 
+        """
         command = f"READ:DEV:{uid}:TEMP:LOOP:TSET"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -169,6 +180,11 @@ class MercuryiTC(VisaInstrument):
     
 
     def _get_temperature_ramp_rate(self, uid: str) -> float:
+        """
+        Read ramp rate of the loop controling the device located at `uid`.
+        Returns:
+            - ramp_rate (float): in K/min 
+        """
         command = f"READ:DEV:{uid}:TEMP:LOOP:RSET"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -183,7 +199,7 @@ class MercuryiTC(VisaInstrument):
 
     def _get_ramp_mode(self, uid: str) -> bool:
         """
-        Get ramp status of the loop associated to UID.
+        Get ramp status of the loop associated to `uid`.
         Returns:
             - ramp_status (bool): True for "ON" or False for "OFF"
         """
@@ -202,7 +218,7 @@ class MercuryiTC(VisaInstrument):
 
     def _get_pid_mode(self, uid: str) -> bool:
         """
-        Get PID status of the loop associated to UID.
+        Get PID status of the loop associated to `uid`.
         Returns:
             - pid_status (bool): True for Enabled or False for Manual mode
         """
@@ -220,6 +236,11 @@ class MercuryiTC(VisaInstrument):
     
 
     def _get_heater_output(self, uid: str) -> float:
+        """
+        Read heater output of the loop associated to `uid`.
+        Returns:
+            - heater_output (float): heater output in percent
+        """
         command = f"READ:DEV:{uid}:TEMP:LOOP:HSET"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -234,7 +255,7 @@ class MercuryiTC(VisaInstrument):
 
     def _get_pressure_mode(self, uid: str) -> bool:
         """
-        Get control status of the pressure loop associated to UID.
+        Get control status of the pressure loop associated to `uid`.
         Returns:
             - control_status (bool): True for Enabled or False for Manual mode
         """
@@ -252,6 +273,11 @@ class MercuryiTC(VisaInstrument):
     
 
     def _get_flow(self, uid: str) -> float:
+        """
+        Get the actual flow of the loop associated to `uid`.
+        Returns:
+            - flow_percentage (float): the flow in percent.
+        """
         command = f"READ:DEV:{uid}:PRES:LOOP:FSET"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -265,6 +291,11 @@ class MercuryiTC(VisaInstrument):
     
 
     def _get_pressure(self, uid: str) -> float:
+        """
+        Get the pressure reading of device `uid`.
+        Returns:
+            - pressure (float): the pressure in mb.
+        """
         command = f"READ:DEV:{uid}:PRES:SIG:PRES"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -277,6 +308,11 @@ class MercuryiTC(VisaInstrument):
     
 
     def _get_pressure_setpoint(self, uid: str) -> float:
+        """
+        Get the pressure setpoint of the loop associated to `uid`.
+        Returns:
+            - pressure (float): the pressure setpoint in mb.
+        """
         command = f"READ:DEV:{uid}:PRES:LOOP:PRST"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -288,8 +324,11 @@ class MercuryiTC(VisaInstrument):
         return float(pressure[:-2])
 
 
-    #Private methods Setters
+    #Private methods: Setters
     def _set_temperature_setpoint(self, uid: str, temperature_setpoint: float) -> None:
+        """
+        Set the temperature setpoint of the loop associated to `uid` to `temperature_setpoint`.
+        """
         command = f"SET:DEV:{uid}:TEMP:LOOP:TSET:{temperature_setpoint:0.3f}"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -299,6 +338,9 @@ class MercuryiTC(VisaInstrument):
         
 
     def _set_temperature_ramp_rate(self, uid: str, ramp_rate: float) -> None:
+        """
+        Set the tempramp rate of the loop associated to `uid` to `ramp_rate`.
+        """
         command = f"SET:DEV:{uid}:TEMP:LOOP:RSET:{ramp_rate:0.3f}"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -309,7 +351,7 @@ class MercuryiTC(VisaInstrument):
 
     def _set_ramp_mode(self, uid: str, ramp_mode: bool) -> None:
         """
-        Set ramp status of the loop associated to UID to True ("ON") or False ("OFF").
+        Set ramp status of the loop associated to `uid` to True ("ON") or False ("OFF").
         """
         ramp_mode = self.reverse_status_mapping[ramp_mode]
         command = f"SET:DEV:{uid}:TEMP:LOOP:RENA:{ramp_mode}"
@@ -322,7 +364,7 @@ class MercuryiTC(VisaInstrument):
     
     def _set_pid_mode(self, uid: str, pid_mode: bool) -> None:
         """
-        Set PID status of the loop associated to UID to True ("ON" i.e. enabled) or False ("OFF" i.e manual).
+        Set PID status of the loop associated to `uid` to True ("ON" i.e. enabled) or False ("OFF" i.e manual).
         """
         pid_mode = self.reverse_status_mapping[pid_mode]
         command = f"SET:DEV:{uid}:TEMP:LOOP:ENAB:{pid_mode}"
@@ -334,6 +376,9 @@ class MercuryiTC(VisaInstrument):
 
     
     def _set_heater_output(self, uid: str, heater_output: float) -> None:
+        """
+        Set the heater output of the loop associated to `uid` to `heater_output`.
+        """
         command = f"SET:DEV:{uid}:TEMP:LOOP:HSET:{heater_output:0.2f}"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -344,7 +389,7 @@ class MercuryiTC(VisaInstrument):
 
     def _set_pressure_mode(self, uid: str, control_mode: bool) -> None:
         """
-        Set pressure control mode of the loop associated to UID to True ("ON" i.e. enabled) or False ("OFF" i.e manual).
+        Set pressure control mode of the loop associated to `uid` to True ("ON" i.e. enabled) or False ("OFF" i.e manual).
         """
         control_mode = self.reverse_status_mapping[control_mode]
         command = f"SET:DEV:{uid}:PRES:LOOP:ENAB:{control_mode}"
@@ -356,6 +401,9 @@ class MercuryiTC(VisaInstrument):
     
 
     def _set_flow(self, uid: str, flow: float) -> None:
+        """
+        Set the flow of the loop associated to `uid` to `flow`.
+        """
         command = f"SET:DEV:{uid}:PRES:LOOP:FSET:{flow:0.2f}"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -365,6 +413,9 @@ class MercuryiTC(VisaInstrument):
     
 
     def _set_pressure(self, uid: str, pressure: float) -> None:
+        """
+        Set the pressure setpoint output of the loop associated to `uid` to `pressure`.
+        """
         command = f"SET:DEV:{uid}:PRES:LOOP:PRST:{pressure:0.2f}"
         log.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
@@ -374,5 +425,8 @@ class MercuryiTC(VisaInstrument):
     
 
     def _reverse_mapping(self, map: dict) -> dict:
+        """
+        Reverse the mapping of a dict. Needs all the values to be unique.
+        """
         reversed_mapping = {value: key for key, value in map.items()}
         return reversed_mapping
