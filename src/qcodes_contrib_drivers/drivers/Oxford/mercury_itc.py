@@ -270,7 +270,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         Returns:
             - control_status (bool): True for Enabled or False for Manual mode
         """
-        command = f"READ:DEV:{uid}:PRES:LOOP:ENAB"
+        command = f"READ:DEV:{uid}:TEMP:LOOP:FAUT"
         LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
@@ -403,7 +403,7 @@ class Teslatron_MercuryiTC(VisaInstrument):
         Set pressure control mode of the loop associated to `uid` to True ("ON" i.e. enabled) or False ("OFF" i.e manual).
         """
         control_mode = self.reverse_status_mapping[control_mode]
-        command = f"SET:DEV:{uid}:PRES:LOOP:ENAB:{control_mode}"
+        command = f"SET:DEV:{uid}:TEMP:LOOP:FAUT:{control_mode}"
         LOG.debug(f'Sending {command} at address {self._address}')
         response = self.visa_handle.query(command)
         LOG.debug(f'Received {response} from address {self._address}')
